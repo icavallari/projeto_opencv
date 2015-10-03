@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package abc;
+package br.com.prj;
 
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
@@ -21,7 +21,7 @@ import org.opencv.objdetect.CascadeClassifier;
  */
 public class Main {
 
-    private final static Integer ESP_LATERAL = 3, ESP_SUPERIOR = 8;
+    private final static Integer PAD_LATERAL = 3, PAD_SUPERIOR = 8, MARING_SUP = -5;
     private final static String URL_LIB_FACE = "C:\\opencv\\sources\\data\\lbpcascades\\lbpcascade_frontalface.xml";
 
     static {
@@ -39,8 +39,8 @@ public class Main {
 
         for (Rect rect : faceDetections.toArray()) {
             Imgproc.rectangle(imagem,
-                    new Point(rect.x - ESP_LATERAL, rect.y - ESP_SUPERIOR),
-                    new Point(rect.x + rect.width + ESP_LATERAL, rect.y + rect.height + ESP_SUPERIOR),
+                    new Point(rect.x - PAD_LATERAL, rect.y - PAD_SUPERIOR),
+                    new Point(rect.x + rect.width + PAD_LATERAL, (rect.y + rect.height + PAD_SUPERIOR) - 5),
                     new Scalar(0, 255, 0));
         }
 

@@ -7,21 +7,29 @@ package br.com.prj;
 
 import java.awt.Graphics;
 import java.awt.Image;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
-import javax.swing.JScrollPane;
 import org.opencv.core.Core;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfByte;
 import org.opencv.core.MatOfRect;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
+import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
@@ -41,6 +49,10 @@ public class TelaPrincipal extends javax.swing.JFrame {
     private final static String URL_LIB_FACE = "C:\\opencv\\sources\\data\\lbpcascades\\lbpcascade_frontalface.xml";
     File selectedFile = null;
 
+    Mat imagemDest = null;
+    Mat imagemCarregada = null;
+    Mat blurred = new Mat();
+
     static {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
     }
@@ -54,7 +66,7 @@ public class TelaPrincipal extends javax.swing.JFrame {
     private void initComponents() {
 
         btnCarregar = new javax.swing.JButton();
-        jLabel1 = new javax.swing.JLabel();
+        imgCarregada = new javax.swing.JLabel();
         btnProcurar = new javax.swing.JButton();
         totalRostos = new javax.swing.JLabel();
         jScrollPane1 = new javax.swing.JScrollPane();
@@ -106,7 +118,7 @@ public class TelaPrincipal extends javax.swing.JFrame {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(btnCarregar)
                     .addGroup(layout.createSequentialGroup()
-                        .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 412, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(imgCarregada, javax.swing.GroupLayout.PREFERRED_SIZE, 412, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(18, 18, 18)
                         .addComponent(btnProcurar)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -128,7 +140,7 @@ public class TelaPrincipal extends javax.swing.JFrame {
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(layout.createSequentialGroup()
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 309, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addComponent(imgCarregada, javax.swing.GroupLayout.PREFERRED_SIZE, 309, javax.swing.GroupLayout.PREFERRED_SIZE))
                             .addGroup(layout.createSequentialGroup()
                                 .addGap(115, 115, 115)
                                 .addComponent(btnProcurar, javax.swing.GroupLayout.PREFERRED_SIZE, 78, javax.swing.GroupLayout.PREFERRED_SIZE)))))
@@ -145,7 +157,7 @@ public class TelaPrincipal extends javax.swing.JFrame {
         fileChooser.setCurrentDirectory(new File(System.getProperty("user.home") + File.separator + "Pictures"));
         if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             selectedFile = fileChooser.getSelectedFile();
-            jLabel1.setIcon(resizeImage(selectedFile.getAbsolutePath(), jLabel1.getWidth(), jLabel1.getHeight()));
+            imgCarregada.setIcon(resizeImage(selectedFile.getAbsolutePath(), imgCarregada.getWidth(), imgCarregada.getHeight()));
         }
 
     }//GEN-LAST:event_btnCarregarActionPerformed
@@ -162,11 +174,11 @@ public class TelaPrincipal extends javax.swing.JFrame {
         CascadeClassifier faceDetector
                 = new CascadeClassifier(URL_LIB_FACE);
 
-        Mat imagem = Imgcodecs.imread(selectedFile.getAbsolutePath());
+        imagemCarregada = Imgcodecs.imread(selectedFile.getAbsolutePath(), Imgcodecs.CV_LOAD_IMAGE_COLOR);
         // imagem com retangulo dos rostos encontrados
-        Mat imagemRect = Imgcodecs.imread(selectedFile.getAbsolutePath());
+        imagemDest = new Mat(imagemCarregada.rows(), imagemCarregada.cols(), imagemCarregada.type());
         MatOfRect faceDetections = new MatOfRect();
-        faceDetector.detectMultiScale(imagem, faceDetections);
+        faceDetector.detectMultiScale(imagemCarregada, faceDetections);
 
         // tentar verificar se o rect encontrado possui olhos
         Rect[] faceEncontrada = new Rect[faceDetections.toArray().length];
@@ -178,13 +190,13 @@ public class TelaPrincipal extends javax.swing.JFrame {
                     new Point(rect.x + rect.width + PAD_LATERAL, (rect.y + rect.height + PAD_SUPERIOR) - 5)
             );
 
-            adicionarLabel(toBufferedImage(new Mat(imagem, faceEncontrada[i])));
+            adicionarLabel(convertMatToImage(new Mat(imagemCarregada, faceEncontrada[i])), faceEncontrada[i]);
 
-            Imgproc.rectangle(imagemRect,
-                    new Point(rect.x - PAD_LATERAL, rect.y - PAD_SUPERIOR),
-                    new Point(rect.x + rect.width + PAD_LATERAL, (rect.y + rect.height + PAD_SUPERIOR) - 5),
-                    new Scalar(0, 255, 0));
-
+//            ADICIONA RETANGULO DO ROSTO NA IMAGEM  
+//            Imgproc.rectangle(imagemDest,
+//                    new Point(rect.x - PAD_LATERAL, rect.y - PAD_SUPERIOR),
+//                    new Point(rect.x + rect.width + PAD_LATERAL, (rect.y + rect.height + PAD_SUPERIOR) - 5),
+//                    new Scalar(0, 255, 0));
             i++;
         }
 
@@ -193,10 +205,6 @@ public class TelaPrincipal extends javax.swing.JFrame {
         } else {
             totalRostos.setText("Identificamos " + faceDetections.toArray().length + " rosto(s) na imagem carregada.");
         }
-
-        Imgcodecs.imwrite("img/imagem_processada.jpg", imagemRect);
-        jLabel1.setIcon(resizeImage("img/imagem_processada.jpg", jLabel1.getWidth(), jLabel1.getHeight()));
-
 
     }//GEN-LAST:event_btnProcurarActionPerformed
 
@@ -213,7 +221,7 @@ public class TelaPrincipal extends javax.swing.JFrame {
         return new ImageIcon(dimg);
     }
 
-    public void adicionarLabel(final Image img) {
+    public void adicionarLabel(final Image img, final Rect faceEncontrada) {
 
         JLabel lbImagem = new JLabel() {
             public void paintComponent(Graphics g) {
@@ -221,6 +229,43 @@ public class TelaPrincipal extends javax.swing.JFrame {
                 g.drawImage(img, 0, 0, getWidth() - 5, getHeight() - 5, null);
             }
         };
+
+        final Integer ultimoPixelColuna = faceEncontrada.width + faceEncontrada.x;
+        final Integer ultimoPixelLinha = faceEncontrada.height + faceEncontrada.y;
+
+        final Mat mat = convertImageToMat(img);
+        Imgproc.medianBlur(mat, mat, 17);
+
+        lbImagem.addMouseListener(new MouseAdapter() {
+
+            private Boolean blur = false;
+
+            @Override
+            public void mouseClicked(MouseEvent e) {
+
+                int i = -1, j = 0;
+                for (int linha = faceEncontrada.y; linha <= ultimoPixelLinha; linha++) {
+                    j = 0;
+                    i++;
+                    for (int coluna = faceEncontrada.x; coluna < ultimoPixelColuna; coluna++) {
+                        double[] cor = mat.get(i, j++);
+                        if (cor != null) {
+                            imagemCarregada.put(linha, coluna, new double[]{cor[0], cor[1], cor[2]});
+                        }
+                    }
+                }
+
+                if (!blur) {
+                    Imgcodecs.imwrite("img/imagem_processada.jpg", imagemCarregada);
+                } else {
+                    System.out.println("remover blur");
+                }
+
+                blur = !blur;
+                imgCarregada.setIcon(resizeImage("img/imagem_processada.jpg", imgCarregada.getWidth(), imgCarregada.getHeight()));
+            }
+
+        });
 
         // Posiciona a imagem
         lbImagem.setBounds(boundX, boundY, 70, 70);
@@ -242,25 +287,36 @@ public class TelaPrincipal extends javax.swing.JFrame {
     }
 
     /**
-     * Converte a imagem Mat em Image sem a necessidade de criar um arquivo
-     * fisico
+     * Converte um Mat em Image
      *
      * @param m
-     * @return
+     * @return new Image()
      */
-    public Image toBufferedImage(Mat m) {
-        int type = BufferedImage.TYPE_BYTE_GRAY;
-        if (m.channels() > 1) {
-            type = BufferedImage.TYPE_3BYTE_BGR;
+    public Image convertMatToImage(Mat m) {
+        MatOfByte bytemat = new MatOfByte();
+        Imgcodecs.imencode(".jpg", m, bytemat);
+        byte[] bytes = bytemat.toArray();
+        InputStream in = new ByteArrayInputStream(bytes);
+        try {
+            return ImageIO.read(in);
+        } catch (IOException ex) {
+            Logger.getLogger(TelaPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
         }
-        int bufferSize = m.channels() * m.cols() * m.rows();
-        byte[] b = new byte[bufferSize];
-        m.get(0, 0, b);
-        BufferedImage image = new BufferedImage(m.cols(), m.rows(), type);
-        final byte[] targetPixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
-        System.arraycopy(b, 0, targetPixels, 0, b.length);
-        return image;
+    }
 
+    /**
+     * Convert uma Image em Mat
+     *
+     * @param img
+     * @return new Mat()
+     */
+    public Mat convertImageToMat(Image img) {
+        BufferedImage image = (BufferedImage) img;
+        byte[] data = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
+        Mat mat = new Mat(image.getHeight(), image.getWidth(), CvType.CV_8UC3);
+        mat.put(0, 0, data);
+        return mat;
     }
 
     public static void main(String args[]) {
@@ -290,9 +346,10 @@ public class TelaPrincipal extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnCarregar;
     private javax.swing.JButton btnProcurar;
-    private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel imgCarregada;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JLabel totalRostos;
     // End of variables declaration//GEN-END:variables
+
 }
